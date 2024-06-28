@@ -1,0 +1,92 @@
+name: Docker
+run-name: "${{ inputs.releaseVersion }}"
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+  #workflow_dispatch:
+    inputs:
+      releaseVersion:
+        type: string
+        description: Version of the image to push
+        required: true
+
+
+permissions:
+  contents: write
+  packages: write
+  checks: write
+  statuses: write
+runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set tag name
+        run: |
+          echo "TAG_NAME=dev" >> $GITHUB_ENV
+
+      - name: Set release tag name
+        #if: github.event_name == 'workflow_dispatch'
+        run: |
+          TAG_NAME=${{ github.event.inputs.releaseVersion }}
+          echo "TAG_NAME=${TAG_NAME}" >> $GITHUB_ENV
+      - name: install curl and git
+              run: |
+                type -p curl >/dev/null || (sudo apt update && sudo apt install curl -y)
+                curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | sudo dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg \
+                && sudo chmod go+r /usr/share/keyrings/githubcli-archive-keyring.gpg \
+                && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null \
+                && sudo apt update \
+                && sudo apt install git gh -y
+
+      - name: Docker meta
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository }}
+          tags: |
+            type=raw,value=latest
+            type=raw,value=${{ env.TAG_NAME }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        #if: github.event_name == 'workflow_dispatch'
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build and push by digest
+        id: build
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          platforms: linux/${{ matrix.platform }}
+          build-args: |
+            VERSION=${{ env.TAG_NAME }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,mode=max
+          cache-to: type=gha,mode=max
+          outputs: type=image,name=ghcr.io/${{ github.repository }},push-by-digest=true,name-canonical=true,push=true
+      - name: Export digest
+        #if: github.event_name == 'workflow_dispatch'
+        run: |
+          mkdir -p /tmp/digests
+          digest="${{ steps.build.outputs.digest }}"
+          touch "/tmp/digests/${digest#sha256:}"
+
+      - name: Upload digest
+        uses: actions/upload-artifact@v4
+        #if: github.event_name == 'workflow_dispatch'
+        with:
+          name: digests
+          path: /tmp/digests/*
+          if-no-files-found: error
+          retention-days: 1
