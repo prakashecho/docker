@@ -21,7 +21,11 @@ permissions:
   packages: write
   checks: write
   statuses: write
-runs-on: ubuntu-latest
+
+jobs:  
+  build:
+  
+    runs-on: ubuntu-latest
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
