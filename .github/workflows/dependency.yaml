@@ -9,14 +9,17 @@ on:
         description: 'Toggle installation of all dependencies'
         required: false
         default: 'false'
+        type: 'string'
       install-curl:
         description: 'Toggle installation of curl'
         required: false
         default: 'false'
+        type: 'string'
       install-git:
         description: 'Toggle installation of git'
         required: false
         default: 'false'
+        type: 'string'
       install-gh:
         description: 'Toggle installation of GitHub CLI'
         required: false
