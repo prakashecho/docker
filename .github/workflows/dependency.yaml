@@ -1,0 +1,40 @@
+name: Install Tools
+
+on:
+  workflow_call:
+    inputs:
+      install-all:
+        description: 'Toggle installation of all tools'
+        required: false
+        default: 'false'
+      install-curl:
+        description: 'Toggle installation of curl'
+        required: false
+        default: 'false'
+      install-git:
+        description: 'Toggle installation of git'
+        required: false
+        default: 'false'
+      install-gh:
+        description: 'Toggle installation of GitHub CLI'
+        required: false
+        default: 'false'
+
+jobs:
+  install-tools:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Install curl
+        if: ${{ inputs.install-all == 'true' || inputs.install-curl == 'true' }}
+        run: sudo apt-get install -y curl
+
+      - name: Install git
+        if: ${{ inputs.install-all == 'true' || inputs.install-git == 'true' }}
+        run: sudo apt-get install -y git
+
+      - name: Install GitHub CLI
+        if: ${{ inputs.install-all == 'true' || inputs.install-gh == 'true' }}
+        run: |
+          sudo apt-get install -y gh
+          gh version
