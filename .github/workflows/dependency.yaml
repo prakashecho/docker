@@ -24,6 +24,7 @@ on:
         description: 'Toggle installation of GitHub CLI'
         required: false
         default: 'false'
+        type: 'string'
 
 jobs:
   install-dependencies:
