@@ -2,19 +2,12 @@ name: Docker
 run-name: "${{ inputs.releaseVersion }}"
 
 on:
-  pull_request:
-    branches:
-      - main
-  push:
-    branches:
-      - main
-  #workflow_dispatch:
+  workflow_call:
     inputs:
       releaseVersion:
         type: string
         description: Version of the image to push
         required: true
-
 
 permissions:
   contents: write
@@ -22,24 +15,22 @@ permissions:
   checks: write
   statuses: write
 
-jobs:  
+jobs:
   build:
-  
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
 
       - name: Set tag name
-        run: |
-          echo "TAG_NAME=dev" >> $GITHUB_ENV
+        run: echo "TAG_NAME=dev" >> $GITHUB_ENV
 
       - name: Set release tag name
-        #if: github.event_name == 'workflow_dispatch'
         run: |
-          TAG_NAME=${{ github.event.inputs.releaseVersion }}
+          TAG_NAME=${{ inputs.releaseVersion }}
           echo "TAG_NAME=${TAG_NAME}" >> $GITHUB_ENV
-      - name: install curl and git
+
+      - name: Install curl and git
         run: |
           type -p curl >/dev/null || (sudo apt update && sudo apt install curl -y)
           curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | sudo dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg \
@@ -62,25 +53,24 @@ jobs:
 
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v3
-        #if: github.event_name == 'workflow_dispatch'
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Build and push by digest
         id: build
         uses: docker/build-push-action@v5
         with:
           context: .
-          # platforms: linux/${{ matrix.platform }}
           build-args: |
             VERSION=${{ env.TAG_NAME }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha,mode=max
           cache-to: type=gha,mode=max
           outputs: type=image,name=ghcr.io/${{ github.repository }},push-by-digest=true,name-canonical=true,push=true
+
       - name: Export digest
-        #if: github.event_name == 'workflow_dispatch'
         run: |
           mkdir -p /tmp/digests
           digest="${{ steps.build.outputs.digest }}"
@@ -88,7 +78,6 @@ jobs:
 
       - name: Upload digest
         uses: actions/upload-artifact@v4
-        #if: github.event_name == 'workflow_dispatch'
         with:
           name: digests
           path: /tmp/digests/*
