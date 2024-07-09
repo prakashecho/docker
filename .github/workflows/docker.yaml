@@ -94,14 +94,22 @@ jobs:
             digest=$(cat ${digest_file})
             platform_suffix=$(basename ${digest_file} | cut -d '-' -f 2)  # Extract platform suffix from filename
             
-            manifest_args="$manifest_args --platform $platform_suffix ghcr.io/${{ github.repository }}@${digest}"
+            if [ -n "$digest" ]; then
+              manifest_args="$manifest_args ghcr.io/${{ github.repository }}@${digest}"
+            fi
           done
+          
+          if [ -z "$manifest_args" ]; then
+            echo "No valid digests found. Exiting."
+            exit 1
+          fi
           
           # Create and push the manifest list
           docker buildx imagetools create \
             -t ghcr.io/${{ github.repository }}:latest \
             -t ghcr.io/${{ github.repository }}:${{ inputs.releaseVersion }} \
             $manifest_args
+
 
       - name: Inspect image
         run: |
