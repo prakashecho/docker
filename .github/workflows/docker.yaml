@@ -13,6 +13,21 @@ permissions:
   packages: write
 
 jobs:
+  name: Docker Build and Push
+
+on:
+  workflow_call:
+    inputs:
+      releaseVersion:
+        type: string
+        description: Version of the image to push
+        required: true
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
   build:
     strategy:
       fail-fast: false
@@ -39,6 +54,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build and push
+        id: docker_build
         uses: docker/build-push-action@v5
         with:
           context: .
@@ -49,8 +65,7 @@ jobs:
       - name: Export digest
         run: |
           platform_suffix="${{ matrix.platform == 'linux/amd64' && 'amd64' || 'arm64' }}"
-          digest=$(docker inspect --format='{{index .RepoDigests 0}}' ghcr.io/${{ github.repository }}:${{ inputs.releaseVersion }}-${platform_suffix} | cut -d'@' -f2)
-          echo $digest > /tmp/digest-${{ matrix.platform }}
+          echo "${{ steps.docker_build.outputs.digest }}" > /tmp/digest-${{ matrix.platform }}
 
       - name: Upload digest
         uses: actions/upload-artifact@v4
@@ -89,7 +104,7 @@ jobs:
           manifest_args=""
           for platform in "linux/amd64" "linux/arm64"; do
             digest=$(cat /tmp/digests/digest-${platform}/digest-${platform})
-            manifest_args="$manifest_args ghcr.io/${{ github.repository }}@$digest"
+            manifest_args="$manifest_args ghcr.io/${{ github.repository }}@${digest}"
           done
           
           # Create and push the manifest list
