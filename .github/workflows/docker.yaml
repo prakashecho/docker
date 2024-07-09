@@ -13,97 +13,90 @@ permissions:
   packages: write
 
 jobs:
- build:
-  strategy:
-    fail-fast: false
-    matrix:
-      platform:
-        - linux/amd64
-        - linux/arm64
-  runs-on: ubuntu-latest
-  steps:
-    - name: Checkout
-      uses: actions/checkout@v4
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        platform:
+          - linux/amd64
+          - linux/arm64
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
 
-    - name: Set up QEMU
-      uses: docker/setup-qemu-action@v3
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
 
-    - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v3
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
 
-    - name: Login to GitHub Container Registry
-      uses: docker/login-action@v3
-      with:
-        registry: ghcr.io
-        username: ${{ github.actor }}
-        password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
-    - name: Build and push by digest
-      id: build
-      uses: docker/build-push-action@v5
-      with:
-        context: .
-        platforms: ${{ matrix.platform }}
-        labels: ${{ steps.meta.outputs.labels }}
-        outputs: type=image,name=ghcr.io/${{ github.repository }},push-by-digest=true,name-canonical=true
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          platforms: ${{ matrix.platform }}
+          push: true
+          tags: ghcr.io/${{ github.repository }}:${{ inputs.releaseVersion }}-${{ matrix.platform }}
 
-    - name: Export digest
-      run: |
-        mkdir -p /tmp/digests
-        digest="${{ steps.build.outputs.digest }}"
-        touch "/tmp/digests/${digest#sha256:}"
+      - name: Export digest
+        run: |
+          digest=$(docker inspect --format='{{index .RepoDigests 0}}' ghcr.io/${{ github.repository }}:${{ inputs.releaseVersion }}-${{ matrix.platform }} | cut -d'@' -f2)
+          echo $digest > /tmp/digest-${{ matrix.platform }}
 
-    - name: Upload digest
-      uses: actions/upload-artifact@v4
-      with:
-        name: digest-${{ matrix.platform == 'linux/amd64' && 'amd64' || 'arm64' }}
-        path: /tmp/digests/*
-        if-no-files-found: error
-        retention-days: 1
- merge:
-  needs: build
-  runs-on: ubuntu-latest
-  steps:
-    - name: Download digests
-      uses: actions/download-artifact@v4
-      with:
-        pattern: digest-*
-        path: /tmp/digests
-        merge-multiple: true
+      - name: Upload digest
+        uses: actions/upload-artifact@v4
+        with:
+          name: digest-${{ matrix.platform }}
+          path: /tmp/digest-${{ matrix.platform }}
+          if-no-files-found: error
 
-    - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v3
+  merge:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
 
-    - name: Login to GitHub Container Registry
-      uses: docker/login-action@v3
-      with:
-        registry: ghcr.io
-        username: ${{ github.actor }}
-        password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
-    - name: Create manifest list and push
-      run: |
-        set -x  # Enable debugging output
-        
-        # List the contents of the digests directory
-        ls -la /tmp/digests
-        
-        # Read digests into an array
-        digests=()
-        while IFS= read -r -d '' file; do
-          digest=$(cat "$file")
-          digests+=("ghcr.io/${{ github.repository }}@$digest")
-        done < <(find /tmp/digests -type f -print0)
-        
-        # Print the digests for debugging
-        echo "Digests: ${digests[*]}"
-        
-        # Create the manifest list
-        docker buildx imagetools create \
-          -t ghcr.io/${{ github.repository }}:latest \
-          -t ghcr.io/${{ github.repository }}:${{ inputs.releaseVersion }} \
-          "${digests[@]}"
+      - name: Download digests
+        uses: actions/download-artifact@v4
+        with:
+          path: /tmp/digests
 
-    - name: Inspect image
-      run: |
-        docker buildx imagetools inspect ghcr.io/${{ github.repository }}:${{ inputs.releaseVersion }}
+      - name: Create manifest list and push
+        run: |
+          set -x
+          
+          # List the contents of the digests directory
+          ls -la /tmp/digests
+          
+          # Read digests and create manifest
+          manifest_args=""
+          for platform in "linux/amd64" "linux/arm64"; do
+            digest=$(cat /tmp/digests/digest-${platform}/digest-${platform})
+            manifest_args="$manifest_args ghcr.io/${{ github.repository }}@$digest"
+          done
+          
+          # Create and push the manifest list
+          docker buildx imagetools create \
+            -t ghcr.io/${{ github.repository }}:latest \
+            -t ghcr.io/${{ github.repository }}:${{ inputs.releaseVersion }} \
+            $manifest_args
+
+      - name: Inspect image
+        run: |
+          docker buildx imagetools inspect ghcr.io/${{ github.repository }}:${{ inputs.releaseVersion }}
