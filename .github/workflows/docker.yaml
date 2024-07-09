@@ -29,14 +29,9 @@ jobs:
 
       - name: Set tag name
         run: |
-          echo "TAG_NAME=dev" >> $GITHUB_ENV
+          echo "TAG_NAME=${{ inputs.releaseVersion }}" >> $GITHUB_ENV
 
-      - name: Set release tag name
-        
-        run: |
-          TAG_NAME=${{ github.event.inputs.releaseVersion }}
-          echo "TAG_NAME=${TAG_NAME}" >> $GITHUB_ENV
-      - name: install curl and git
+      - name: Install curl and git
         run: |
           type -p curl >/dev/null || (sudo apt update && sudo apt install curl -y)
           curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | sudo dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg \
@@ -44,6 +39,7 @@ jobs:
           && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null \
           && sudo apt update \
           && sudo apt install git gh -y
+
       - name: Docker meta
         id: meta
         uses: docker/metadata-action@v5
@@ -58,11 +54,11 @@ jobs:
 
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v3
-        
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Build and push by digest
         id: build
         uses: docker/build-push-action@v5
@@ -76,13 +72,12 @@ jobs:
           cache-to: type=gha,mode=max
           outputs: type=image,name=ghcr.io/${{ github.repository }},push-by-digest=true,name-canonical=true,push=true
 
-      - name: LS
+      - name: List files
         run: |
           pwd
           ls
 
       - name: Export digest
-       
         run: |
           mkdir -p /tmp/digests
           digest="${{ steps.build.outputs.digest }}"
@@ -90,7 +85,6 @@ jobs:
 
       - name: Upload digest
         uses: actions/upload-artifact@v4
-        
         with:
           name: digests-${{ matrix.platform }}
           path: /tmp/digests/*
