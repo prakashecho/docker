@@ -62,6 +62,7 @@ jobs:
           path: /tmp/digests/*
           if-no-files-found: error
 
+  
   merge:
     needs: build
     runs-on: ubuntu-latest
@@ -94,24 +95,14 @@ jobs:
           manifest_args=""
           for digest_file in /tmp/digests/digest-*; do
             digest=$(cat ${digest_file})
-            platform_suffix=$(basename ${digest_file} | cut -d '-' -f 2)  # Extract platform suffix from filename
-            
-            if [ -n "$digest" ]; then
-              manifest_args="$manifest_args ghcr.io/${{ github.repository }}@${digest}"
-            fi
+            manifest_args="$manifest_args ghcr.io/${{ github.repository }}@${digest}"
           done
-          
-          if [ -z "$manifest_args" ]; then
-            echo "No valid digests found. Exiting."
-            exit 1
-          fi
           
           # Create and push the manifest list
           docker buildx imagetools create \
             -t ghcr.io/${{ github.repository }}:latest \
             -t ghcr.io/${{ github.repository }}:${{ inputs.releaseVersion }} \
             $manifest_args
-
 
       - name: Inspect image
         run: |
