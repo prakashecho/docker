@@ -92,7 +92,9 @@ jobs:
           manifest_args=""
           for digest_file in /tmp/digests/digest-*; do
             digest=$(cat ${digest_file})
-            manifest_args="$manifest_args ghcr.io/${{ github.repository }}@${digest}"
+            platform_suffix=$(basename ${digest_file} | cut -d '-' -f 2)  # Extract platform suffix from filename
+            
+            manifest_args="$manifest_args --platform $platform_suffix ghcr.io/${{ github.repository }}@${digest}"
           done
           
           # Create and push the manifest list
