@@ -59,7 +59,7 @@ jobs:
 
       - name: Export digest
         run: |
-          platform_suffix="${{ matrix.platform == 'linux/amd64' && 'amd64' || 'arm64' }}"
+          platform_suffix="${{ matrix.platform == 'amd64' && 'amd64' || 'arm64' }}"
           mkdir -p /tmp/digests
           echo "${{ steps.docker_build.outputs.digest }}" > /tmp/digests/digest-${platform_suffix}
 
