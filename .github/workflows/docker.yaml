@@ -14,14 +14,14 @@ permissions:
 
 jobs:
   build:
-  strategy:
+   strategy:
     fail-fast: false
     matrix:
       platform:
         - linux/amd64
         - linux/arm64
-  runs-on: ubuntu-latest
-  steps:
+   runs-on: ubuntu-latest
+   steps:
     - name: Checkout
       uses: actions/checkout@v4
 
