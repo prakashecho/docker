@@ -83,11 +83,26 @@ jobs:
 
     - name: Create manifest list and push
       run: |
-        digests=$(ls /tmp/digests/*)
+        set -x  # Enable debugging output
+        
+        # List the contents of the digests directory
+        ls -la /tmp/digests
+        
+        # Read digests into an array
+        digests=()
+        while IFS= read -r -d '' file; do
+          digest=$(cat "$file")
+          digests+=("ghcr.io/${{ github.repository }}@$digest")
+        done < <(find /tmp/digests -type f -print0)
+        
+        # Print the digests for debugging
+        echo "Digests: ${digests[*]}"
+        
+        # Create the manifest list
         docker buildx imagetools create \
           -t ghcr.io/${{ github.repository }}:latest \
           -t ghcr.io/${{ github.repository }}:${{ inputs.releaseVersion }} \
-          $(echo $digests | sed 's|/tmp/digests/|ghcr.io/${{ github.repository }}@sha256:|g')
+          "${digests[@]}"
 
     - name: Inspect image
       run: |
