@@ -45,7 +45,9 @@ jobs:
           cache-from: type=gha,mode=max
           cache-to: type=gha,mode=max
           #push: true
-          tags: ghcr.io/${{ github.repository }}:${{ inputs.releaseVersion }}
+          tags: |
+            ghcr.io/${{ github.repository }}:latest
+            ghcr.io/${{ github.repository }}:${{ inputs.releaseVersion }}
 
       - name: Export digest
         run: |
