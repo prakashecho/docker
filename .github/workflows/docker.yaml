@@ -49,6 +49,11 @@ jobs:
             ghcr.io/${{ github.repository }}:latest
             ghcr.io/${{ github.repository }}:${{ inputs.releaseVersion }}
 
+
+      - name: Output digest
+        run: |
+          echo "Image digest for ${{ matrix.platform }}: ${{ steps.docker_build.outputs.digest }}"    
+
       - name: Export digest
         run: |
           platform_suffix="${{ matrix.platform == 'linux/amd64' && 'amd64' || 'arm64' }}"
