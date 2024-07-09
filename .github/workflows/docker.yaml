@@ -49,6 +49,9 @@ jobs:
             ghcr.io/${{ github.repository }}:latest
             ghcr.io/${{ github.repository }}:${{ inputs.releaseVersion }}
 
+      - name: List Docker images
+        run: |
+          docker images
 
       - name: Output digest
         run: |
@@ -109,6 +112,11 @@ jobs:
             -t ghcr.io/${{ github.repository }}:${{ inputs.releaseVersion }} \
             $manifest_args
 
+      - name: Inspect image
+        run: |
+          docker buildx imagetools inspect ghcr.io/${{ github.repository }}:${{ inputs.releaseVersion }}
+
+      
       - name: Inspect image
         run: |
           docker buildx imagetools inspect ghcr.io/${{ github.repository }}:${{ inputs.releaseVersion }}
